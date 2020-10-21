@@ -19,8 +19,14 @@ def convert_locations_to_boxes(locations, priors, center_variance,
             are relative to the image size.
     """
     # priors can have one dimension less.
+    # priors.shape = (4230,4)
+    # locations.shape = (1,4230,4)
+    # len(priors.shape) = 2
+    # len(locations.shape) = 3
+    # print("priors.shape:",priors.shape)
+    # print("locations.shape:",locations.shape)
     if len(priors.shape) + 1 == len(locations.shape):
-        priors = np.expand_dims(priors, 0)
+        priors = np.expand_dims(priors, 0) #(1,4230,4)
     return np.concatenate([
         locations[..., :2] * center_variance * priors[..., 2:] + priors[..., :2],
         np.exp(locations[..., 2:] * size_variance) * priors[..., 2:]

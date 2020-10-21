@@ -31,6 +31,7 @@ typedef struct FaceInfo {
 
 } FaceInfo;
 
+//ultraface(mnn_path, 320, 240, 4, 0.65)
 class UltraFace {
 public:
     UltraFace(const std::string &mnn_path,

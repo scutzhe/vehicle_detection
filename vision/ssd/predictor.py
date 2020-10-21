@@ -1,5 +1,4 @@
 import torch
-
 from ..utils import box_utils
 from .data_preprocessing import PredictionTransform
 from ..utils.misc import Timer

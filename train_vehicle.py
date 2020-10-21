@@ -1,42 +1,46 @@
-"""
-This code is the main training code.
-"""
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+'''
+# @author  : 郑祥忠
+# @license : (C) Copyright,2016-2020,广州海格星航科技
+# @contact : dylenzheng@gmail.com
+# @file    : train_vehicle.py
+# @time    : 10/14/20 9:07 AM
+# @desc    :
+'''
+
 import argparse
 import itertools
 import logging
 import os
 import sys
+from tqdm import tqdm
 
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 
-from vision.datasets.voc_dataset import VOCDataset
+from vision.datasets.vehicle_dataset import VehicleDataset
 from vision.nn.multibox_loss import MultiboxLoss
 from vision.ssd.config.fd_config import define_img_size
-from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
+from vision.utils.misc import str2bool, Timer
+from vision.ssd.config import fd_config
+from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
+from vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd
+from vision.ssd.mb_tiny_fd import create_mb_tiny_fd
+from vision.ssd.ssd import MatchPrior
 
-parser = argparse.ArgumentParser(
-    description='train With Pytorch')
-
-parser.add_argument("--dataset_type", default="voc", type=str,
-                    help='Specify dataset type. Currently support voc.')
-
-parser.add_argument('--datasets', nargs='+', help='Dataset directory path')
-parser.add_argument('--validation_dataset', help='Dataset directory path')
+parser = argparse.ArgumentParser(description='train With Pytorch')
+parser.add_argument('--datasets', nargs='+', default= "/home/zhex/data/vehicle", help='Dataset directory path')
+parser.add_argument('--label_path', default= "/home/zhex/data/vehicle/labels.txt", help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
 
 parser.add_argument('--net', default="RFB",
                     help="The network architecture ,optional(RFB , slim)")
-parser.add_argument('--freeze_base_net', action='store_true',
-                    help="Freeze base net layers.")
-parser.add_argument('--freeze_net', action='store_true',
-                    help="Freeze all the layers except the prediction head.")
-
 # Params for SGD
-parser.add_argument('--lr', '--learning-rate', default=1e-2, type=float,
+parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
@@ -53,7 +57,7 @@ parser.add_argument('--extra_layers_lr', default=None, type=float,
 parser.add_argument('--base_net',
                     help='Pretrained base model')
 parser.add_argument('--pretrained_ssd', help='Pre-trained base model')
-parser.add_argument('--resume', default=None, type=str,
+parser.add_argument('--resume', default="models_vehicle/RFB-Epoch-30-Loss-2.154197376426541.pth", type=str,
                     help='Checkpoint state_dict file to resume training from')
 
 # Scheduler
@@ -69,13 +73,13 @@ parser.add_argument('--t_max', default=120, type=float,
                     help='T_max value for Cosine Annealing Scheduler.')
 
 # Train params
-parser.add_argument('--batch_size', default=24, type=int,
+parser.add_argument('--batch_size', default=96, type=int,
                     help='Batch size for training')
 parser.add_argument('--num_epochs', default=200, type=int,
                     help='the number epochs')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
-parser.add_argument('--validation_epochs', default=5, type=int,
+parser.add_argument('--validation_epochs', default=10, type=int,
                     help='the number epochs')
 parser.add_argument('--debug_steps', default=100, type=int,
                     help='Set the debug log output frequency.')
@@ -88,28 +92,19 @@ parser.add_argument('--log_dir', default='./models_vehicle/vehicle_detection/log
                     help='lod dir')
 parser.add_argument('--cuda_index', default="0", type=str,
                     help='Choose cuda index.If you have 4 GPUs, you can set it like 0,1,2,3')
-parser.add_argument('--power', default=2, type=int,
-                    help='poly lr pow')
-parser.add_argument('--overlap_threshold', default=0.35, type=float,
-                    help='overlap_threshold')
-parser.add_argument('--optimizer_type', default="SGD", type=str,
-                    help='optimizer_type')
+parser.add_argument('--power', default=2, type=int,help='poly lr pow')
+parser.add_argument('--overlap_threshold', default=0.35, type=float,help='overlap_threshold')
+parser.add_argument('--optimizer_type', default="Adam", type=str,help='optimizer_type')
 parser.add_argument('--input_size', default=384, type=int,
                     help='define network input size,default optional value 128/160/320/384/480/640/1280')
-
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 args = parser.parse_args()
 
 input_img_size = args.input_size  # define input size ,default optional(128/160/320/384/480/640/1280)
-logging.info("inpu size :{}".format(input_img_size))
-define_img_size(input_img_size)  # must put define_img_size() before 'import fd_config'
+logging.info("input size :{}".format(input_img_size))
 
-from vision.ssd.config import fd_config
-from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
-from vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd
-from vision.ssd.mb_tiny_fd import create_mb_tiny_fd
-from vision.ssd.ssd import MatchPrior
+define_img_size(input_img_size)  # must put define_img_size() before 'import fd_config'
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
 
@@ -134,7 +129,6 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
     running_regression_loss = 0.0
     running_classification_loss = 0.0
     for i, data in enumerate(loader):
-        print(".", end="", flush=True)
         images, boxes, labels = data
         images = images.to(device)
         boxes = boxes.to(device)
@@ -209,91 +203,45 @@ if __name__ == '__main__':
     train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std)
     target_transform = MatchPrior(config.priors, config.center_variance,
                                   config.size_variance, args.overlap_threshold)
-
     test_transform = TestTransform(config.image_size, config.image_mean_test, config.image_std)
 
     if not os.path.exists(args.checkpoint_folder):
         os.makedirs(args.checkpoint_folder)
-    logging.info("Prepare training datasets.")
-    datasets = []
-    for dataset_path in args.datasets:
-        if args.dataset_type == 'voc':
-            dataset = VOCDataset(dataset_path, transform=train_transform,
-                                 target_transform=target_transform)
-            label_file = os.path.join(args.checkpoint_folder, "voc-model-labels.txt")
-            store_labels(label_file, dataset.class_names)
-            num_classes = len(dataset.class_names)
 
-        else:
-            raise ValueError(f"Dataset tpye {args.dataset_type} is not supported.")
-        datasets.append(dataset)
-    logging.info(f"Stored labels into file {label_file}.")
-    train_dataset = ConcatDataset(datasets)
-    logging.info("Train dataset size: {}".format(len(train_dataset)))
-    train_loader = DataLoader(train_dataset, args.batch_size,
-                              num_workers=args.num_workers,
-                              shuffle=True)
-    logging.info("Prepare Validation datasets.")
-    if args.dataset_type == "voc":
-        val_dataset = VOCDataset(args.validation_dataset, transform=test_transform,
-                                 target_transform=target_transform, is_test=True)
-    logging.info("validation dataset size: {}".format(len(val_dataset)))
-
-    val_loader = DataLoader(val_dataset, args.batch_size,
-                            num_workers=args.num_workers,
-                            shuffle=False)
-    logging.info("Build network.")
+    train_dataset = VehicleDataset(args.datasets, is_train=True, transform=train_transform,target_transform=target_transform)
+    val_dataset = VehicleDataset(args.datasets, is_train=True, transform=test_transform,target_transform=target_transform,)
+    train_loader = DataLoader(train_dataset, args.batch_size,num_workers=args.num_workers,shuffle=True)
+    val_loader = DataLoader(val_dataset, args.batch_size,num_workers=args.num_workers,shuffle=False)
+    num_classes = 2
+    # create net
     net = create_net(num_classes)
 
-    # add multigpu_train
     if torch.cuda.device_count() >= 1:
         cuda_index_list = [int(v.strip()) for v in args.cuda_index.split(",")]
         net = nn.DataParallel(net, device_ids=cuda_index_list)
         logging.info("use gpu :{}".format(cuda_index_list))
 
     min_loss = -10000.0
-    last_epoch = -1
+    last_epoch = 33 #-1
 
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr
-    if args.freeze_base_net:
-        logging.info("Freeze base net.")
-        freeze_net_layers(net.base_net)
-        params = itertools.chain(net.source_layer_add_ons.parameters(), net.extras.parameters(),
-                                 net.regression_headers.parameters(), net.classification_headers.parameters())
-        params = [
-            {'params': itertools.chain(
-                net.source_layer_add_ons.parameters(),
-                net.extras.parameters()
-            ), 'lr': extra_layers_lr},
-            {'params': itertools.chain(
-                net.regression_headers.parameters(),
-                net.classification_headers.parameters()
-            )}
-        ]
-    elif args.freeze_net:
-        freeze_net_layers(net.base_net)
-        freeze_net_layers(net.source_layer_add_ons)
-        freeze_net_layers(net.extras)
-        params = itertools.chain(net.regression_headers.parameters(), net.classification_headers.parameters())
-        logging.info("Freeze all the layers except prediction heads.")
-    else:
-        params = [
-            {'params': net.module.base_net.parameters(), 'lr': base_net_lr},
-            {'params': itertools.chain(
-                net.module.source_layer_add_ons.parameters(),
-                net.module.extras.parameters()
-            ), 'lr': extra_layers_lr},
-            {'params': itertools.chain(
-                net.module.regression_headers.parameters(),
-                net.module.classification_headers.parameters()
-            )}
-        ]
 
+    params = [
+        {'params': net.module.base_net.parameters(), 'lr': base_net_lr},
+        {'params': itertools.chain(
+            net.module.source_layer_add_ons.parameters(),
+            net.module.extras.parameters()
+        ), 'lr': extra_layers_lr},
+        {'params': itertools.chain(
+            net.module.regression_headers.parameters(),
+            net.module.classification_headers.parameters()
+        )}
+    ]
     timer.start("Load Model")
     if args.resume:
         logging.info(f"Resume from the model {args.resume}")
-        net.load(args.resume)
+        net.module.load(args.resume)
     elif args.base_net:
         logging.info(f"Init from base net {args.base_net}")
         net.init_from_base_net(args.base_net)
@@ -303,9 +251,7 @@ if __name__ == '__main__':
     logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
 
     net.to(DEVICE)
-
-    criterion = MultiboxLoss(config.priors, neg_pos_ratio=3,
-                             center_variance=0.1, size_variance=0.2, device=DEVICE)
+    criterion = MultiboxLoss(config.priors, neg_pos_ratio=3,center_variance=0.1, size_variance=0.2, device=DEVICE)
     if args.optimizer_type == "SGD":
         optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
                                     weight_decay=args.weight_decay)
@@ -322,8 +268,7 @@ if __name__ == '__main__':
         if args.scheduler == 'multi-step':
             logging.info("Uses MultiStepLR scheduler.")
             milestones = [int(v.strip()) for v in args.milestones.split(",")]
-            scheduler = MultiStepLR(optimizer, milestones=milestones,
-                                    gamma=0.1, last_epoch=last_epoch)
+            scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.1, last_epoch=last_epoch)
         elif args.scheduler == 'cosine':
             logging.info("Uses CosineAnnealingLR scheduler.")
             scheduler = CosineAnnealingLR(optimizer, args.t_max, last_epoch=last_epoch)
@@ -335,13 +280,13 @@ if __name__ == '__main__':
             sys.exit(1)
 
     logging.info(f"Start training from epoch {last_epoch + 1}.")
-    for epoch in range(last_epoch + 1, args.num_epochs):
+    for epoch in tqdm(range(last_epoch + 1, args.num_epochs)):
         if args.optimizer_type != "Adam":
             if args.scheduler != "poly":
                 if epoch != 0:
                     scheduler.step()
-        train(train_loader, net, criterion, optimizer,
-              device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
+        train(train_loader, net, criterion, optimizer,device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
+
         if args.scheduler == "poly":
             adjust_learning_rate(optimizer, epoch)
         logging.info("lr rate :{}".format(optimizer.param_groups[0]['lr']))

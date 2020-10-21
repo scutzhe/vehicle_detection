@@ -126,6 +126,7 @@ class ToAbsoluteCoords(object):
 class ToPercentCoords(object):
     def __call__(self, image, boxes=None, labels=None):
         height, width, channels = image.shape
+        # print("boxes.shape:",boxes.shape)
         boxes[:, 0] /= width
         boxes[:, 2] /= width
         boxes[:, 1] /= height
@@ -487,6 +488,7 @@ class RandomMirror(object):
         if random.randint(2):
             image = image[:, ::-1]
             boxes = boxes.copy()
+            # print("boxes.shape:",boxes.shape)
             boxes[:, 0::2] = width - boxes[:, 2::-2]
         return image, boxes, classes
 

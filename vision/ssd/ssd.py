@@ -96,6 +96,9 @@ class SSD(nn.Module):
                 locations, self.priors, self.config.center_variance, self.config.size_variance
             )
             boxes = box_utils.center_form_to_corner_form(boxes)
+
+            # confidences = confidences
+            # boxes = locations
             return confidences, boxes
         else:
             return confidences, locations

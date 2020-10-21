@@ -1,7 +1,5 @@
 import math
-
 import torch
-
 
 def generate_priors(feature_map_list, shrinkage_list, image_size, min_boxes, clamp=True) -> torch.Tensor:
     priors = []
@@ -16,18 +14,12 @@ def generate_priors(feature_map_list, shrinkage_list, image_size, min_boxes, cla
                 for min_box in min_boxes[index]:
                     w = min_box / image_size[0]
                     h = min_box / image_size[1]
-                    priors.append([
-                        x_center,
-                        y_center,
-                        w,
-                        h
-                    ])
+                    priors.append([x_center,y_center,w,h])
     print("priors nums:{}".format(len(priors)))
     priors = torch.tensor(priors)
     if clamp:
         torch.clamp(priors, 0.0, 1.0, out=priors)
     return priors
-
 
 def convert_locations_to_boxes(locations, priors, center_variance,
                                size_variance):
@@ -146,6 +138,7 @@ def hard_negative_mining(loss, labels, neg_pos_ratio):
     num_pos = pos_mask.long().sum(dim=1, keepdim=True)
     num_neg = num_pos * neg_pos_ratio
 
+    # print("pos_mask.size():",pos_mask.size()) ([24,6354])
     loss[pos_mask] = -math.inf
     _, indexes = loss.sort(dim=1, descending=True)
     _, orders = indexes.sort(dim=1)

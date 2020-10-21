@@ -6,7 +6,6 @@
 @time: 2019-11-25 
 """
 from __future__ import print_function
-
 import os
 import argparse
 import sys
@@ -48,6 +47,8 @@ def define_img_size(image_size):
 
     for i in range(0, len(image_size)):
         shrinkage_list.append(strides)
+    print("feature_map_w_h_list:",feature_map_w_h_list)
+    print("shrinkage_list:",shrinkage_list)
     priors = generate_priors(feature_map_w_h_list, shrinkage_list, image_size, min_boxes)
     return priors
 
@@ -65,12 +66,7 @@ def generate_priors(feature_map_list, shrinkage_list, image_size, min_boxes, cla
                 for min_box in min_boxes[index]:
                     w = min_box / image_size[0]
                     h = min_box / image_size[1]
-                    priors.append([
-                        x_center,
-                        y_center,
-                        w,
-                        h
-                    ])
+                    priors.append([x_center,y_center,w,h])
     print("priors nums:{}".format(len(priors)))
     priors = torch.tensor(priors)
     if clamp:
@@ -141,10 +137,10 @@ def inference():
         for i in range(boxes.shape[0]):
             box = boxes[i, :]
             cv2.rectangle(image_ori, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 2)
-        cv2.imwrite(os.path.join(result_path, file_path), image_ori)
-        print("result_pic is written to {}".format(os.path.join(result_path, file_path)))
+        # cv2.imwrite(os.path.join(result_path, file_path), image_ori)
+        # print("result_pic is written to {}".format(os.path.join(result_path, file_path)))
         cv2.imshow("UltraFace_mnn_py", image_ori)
-        cv2.waitKey(-1)
+        cv2.waitKey(1000)
     cv2.destroyAllWindows()
 
 

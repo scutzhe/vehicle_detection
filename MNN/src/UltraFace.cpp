@@ -17,9 +17,10 @@ UltraFace::UltraFace(const std::string &mnn_path,
     in_h = input_length;
     w_h_list = {in_w, in_h};
 
+
     for (auto size : w_h_list) {
         std::vector<float> fm_item;
-        for (float stride : strides) {
+        for (float stride : strides) { //strides = {8.0, 16.0, 32.0, 64.0}
             fm_item.push_back(ceil(size / stride));
         }
         featuremap_size.push_back(fm_item);
@@ -180,9 +181,7 @@ void UltraFace::nms(std::vector<FaceInfo> &input, std::vector<FaceInfo> &output,
 
             float area1 = h1 * w1;
 
-            float score;
-
-            score = inner_area / (area0 + area1 - inner_area);
+            float IOU = inner_area / (area0 + area1 - inner_area);
 
             if (score > iou_threshold) {
                 merged[j] = 1;
