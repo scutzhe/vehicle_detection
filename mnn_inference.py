@@ -19,7 +19,7 @@ import torch
 import vision.utils.box_utils_numpy as box_utils
 
 parser = argparse.ArgumentParser(description='run vehicle detection with MNN in py')
-parser.add_argument('--model_path', default="models_vehicle/mnn/vehicle_detection_epoch_20_simple.mnn", type=str, help='model path')
+parser.add_argument('--model_path', default="models_vehicle_slim/mnn/vehicle_detection_epoch_47_slim_gpu.mnn", type=str, help='model path')
 parser.add_argument('--input_size', default=384, type=int)
 parser.add_argument('--threshold', default=0.7, type=float, help='score threshold')
 parser.add_argument('--imgs_path', default="vehicle_images", type=str, help='imgs dir')
@@ -220,6 +220,6 @@ def inference_image(image_path):
 
 if __name__ == "__main__":
     # inference()
-    # image_path = "vehicle_images/01.jpg"
-    image_path = "/home/zhex/test_result/vehicle_detection/03.jpeg"
+    image_path = "vehicle_images/01.jpg"
+    # image_path = "/home/zhex/test_result/vehicle_detection/03.jpeg"
     inference_image(image_path)

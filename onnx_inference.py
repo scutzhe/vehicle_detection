@@ -49,7 +49,8 @@ def postdeal(width, height, confidences, boxes, prob_threshold, iou_threshold=0.
 
 label_path = "models_vehicle/labels.txt"
 # onnx_path = "models_vehicle/onnx/vehicle_detection_epoch_20.onnx"
-onnx_path = "models_vehicle/onnx/vehicle_detection_epoch_20_simple.onnx"
+onnx_path = "models_vehicle_slim/onnx/vehicle_detection_epoch_47_slim.onnx"
+# onnx_path = "models_vehicle/onnx/vehicle_detection_epoch_20_simple.onnx"
 class_names = [name.strip() for name in open(label_path).readlines()]
 
 predictor = onnx.load(onnx_path)

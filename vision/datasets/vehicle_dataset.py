@@ -18,8 +18,6 @@ class VehicleDataset:
     def __init__(self, root, is_train = False, transform=None, target_transform=None):
         self.root = root
         self.image_dir = self.root + "/" + "JPEGImages"
-        self.annotation_dir = self.root + "/" + "Annotations"
-        self.annotations = os.listdir(self.annotation_dir)
         self.transform = transform
         self.target_transform = target_transform
         self.is_train = is_train

@@ -18,7 +18,7 @@ from vision.ssd.mb_tiny_fd import create_mb_tiny_fd, create_mb_tiny_fd_predictor
 from vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd, create_Mb_Tiny_RFB_fd_predictor
 
 parser = argparse.ArgumentParser(description='detect_imgs')
-parser.add_argument('--net_type', default="RFB", type=str,
+parser.add_argument('--net_type', default="slim", type=str,
                     help='The network architecture ,optional: RFB (higher precision) or slim (faster)')
 parser.add_argument('--input_size', default=384, type=int,
                     help='define network input size,default optional value 128/160/320/480/640/1280')
@@ -44,7 +44,7 @@ def detection():
     class_names = [name.strip() for name in open(args.label_path).readlines()]
 
     if args.net_type == 'slim':
-        model_path = ""
+        model_path = "models_vehicle_slim/slim-Epoch-47-Loss-2.7371097601963403.pth"
         net = create_mb_tiny_fd(len(class_names), is_test=True, device=test_device)
         predictor = create_mb_tiny_fd_predictor(net, candidate_size=args.candidate_size, device=test_device)
     elif args.net_type == 'RFB':

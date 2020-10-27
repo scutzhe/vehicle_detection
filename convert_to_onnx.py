@@ -18,14 +18,14 @@ from vision.ssd.mb_tiny_fd import create_mb_tiny_fd
 input_img_size = 384  # define input size ,default optional(128/160/320/384/480/640/1280)
 define_img_size(input_img_size)
 
-# net_type = "slim"  # inference faster,lower precision
-net_type = "RFB"     # inference lower,higher precision
+net_type = "slim"  # inference faster,lower precision
+# net_type = "RFB"     # inference lower,higher precision
 label_path = "models_vehicle/labels.txt"
 class_names = [name.strip() for name in open(label_path).readlines()]
 num_classes = len(class_names)
 
 if net_type == 'slim':
-    model_path = ""
+    model_path = "models_vehicle_slim/slim-Epoch-47-Loss-2.7371097601963403.pth"
     net = create_mb_tiny_fd(len(class_names), is_test=True)
 elif net_type == 'RFB':
     model_path = "models_vehicle/RFB-Epoch-20-Loss-2.2841168881838954.pth"
@@ -38,7 +38,8 @@ net.load(model_path)
 net.eval()
 net.to("cuda")
 
-model_path = f"models_vehicle/onnx/vehicle_detection_epoch_20.onnx"
+# model_path = f"models_vehicle/onnx/vehicle_detection_epoch_20.onnx"
+model_path = f"models_vehicle_slim/onnx2mnn/vehicle_detection_epoch_47_slim.onnx"
 # model_path = f"models_vehicle/onnx2mnn/vehicle_detection_epoch_20.onnx"
 
 dummy_input = torch.randn(1, 3, 192, 384).to("cuda")
