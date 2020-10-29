@@ -21,7 +21,7 @@ from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 from torch.utils.data import DataLoader
 
-from vision.datasets.drink_dataset import DrinkDataset
+from vision.datasets.txt_dataset import TXTDataset
 from vision.nn.multibox_loss import MultiboxLoss
 from vision.ssd.config.fd_config import define_img_size
 from vision.utils.misc import str2bool, Timer
@@ -32,15 +32,15 @@ from vision.ssd.mb_tiny_fd import create_mb_tiny_fd
 from vision.ssd.ssd import MatchPrior
 
 parser = argparse.ArgumentParser(description='train With Pytorch')
-parser.add_argument('--datasets', nargs='+', default= "/home/zhex/data/drink", help='Dataset directory path')
-parser.add_argument('--label_path', default= "/home/zhex/data/drink/labels.txt", help='Dataset directory path')
+parser.add_argument('--datasets', nargs='+', default= "/home/zhex/data/electronic_tag", help='Dataset directory path')
+parser.add_argument('--label_path', default= "/home/zhex/data/electronic_tag/labels.txt", help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
 
-parser.add_argument('--net', default="RFB",
+parser.add_argument('--net', default="slim",
                     help="The network architecture ,optional(RFB , slim)")
 # Params for SGD
-parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
@@ -57,7 +57,7 @@ parser.add_argument('--extra_layers_lr', default=None, type=float,
 parser.add_argument('--base_net',
                     help='Pretrained base model')
 parser.add_argument('--pretrained_ssd', help='Pre-trained base model')
-parser.add_argument('--resume', default="", type=str,
+parser.add_argument('--resume', default="models_tag/slim-Epoch-48-Loss-1.727860439208246.pth", type=str,
                     help='Checkpoint state_dict file to resume training from')
 
 # Scheduler
@@ -86,16 +86,16 @@ parser.add_argument('--debug_steps', default=100, type=int,
 parser.add_argument('--use_cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
 
-parser.add_argument('--checkpoint_folder', default='models_drink/',
+parser.add_argument('--checkpoint_folder', default='models_tag/',
                     help='Directory for saving checkpoint models')
-parser.add_argument('--log_dir', default='./models_drink/logs',
-                    help='lod dir')
+parser.add_argument('--log_dir', default='./models_tag/logs',
+                    help='log dir')
 parser.add_argument('--cuda_index', default="0", type=str,
                     help='Choose cuda index.If you have 4 GPUs, you can set it like 0,1,2,3')
 parser.add_argument('--power', default=2, type=int,help='poly lr pow')
 parser.add_argument('--overlap_threshold', default=0.35, type=float,help='overlap_threshold')
 parser.add_argument('--optimizer_type', default="Adam", type=str,help='optimizer_type')
-parser.add_argument('--input_size', default=384, type=int,
+parser.add_argument('--input_size', default=320, type=int,
                     help='define network input size,default optional value 128/160/320/384/480/640/1280')
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -210,8 +210,8 @@ if __name__ == '__main__':
     if not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
 
-    train_dataset = DrinkDataset(args.datasets, is_train=True, transform=train_transform,target_transform=target_transform)
-    val_dataset = DrinkDataset(args.datasets, is_train=False, transform=test_transform,target_transform=target_transform,)
+    train_dataset = TXTDataset(args.datasets, is_train=True, transform=train_transform,target_transform=target_transform)
+    val_dataset = TXTDataset(args.datasets, is_train=False, transform=test_transform,target_transform=target_transform,)
     train_loader = DataLoader(train_dataset, args.batch_size,num_workers=args.num_workers,shuffle=True)
     val_loader = DataLoader(val_dataset, args.batch_size,num_workers=args.num_workers,shuffle=False)
     num_classes = 2
@@ -224,7 +224,7 @@ if __name__ == '__main__':
         logging.info("use gpu :{}".format(cuda_index_list))
 
     min_loss = -10000.0
-    last_epoch = -1 #-1
+    last_epoch = 49 #-1
 
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr

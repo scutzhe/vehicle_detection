@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 '''
 # @author  : 郑祥忠
-# @license : (C) Copyright,2016-2020,广州海格星航科技
+# @license : (C) Copyright,2016-2020
 # @contact : dylenzheng@gmail.com
 # @file    : train_vehicle.py
 # @time    : 10/14/20 9:07 AM
@@ -57,7 +57,7 @@ parser.add_argument('--extra_layers_lr', default=None, type=float,
 parser.add_argument('--base_net',
                     help='Pretrained base model')
 parser.add_argument('--pretrained_ssd', help='Pre-trained base model')
-parser.add_argument('--resume', default="models_vehicle/RFB-Epoch-30-Loss-2.154197376426541.pth", type=str,
+parser.add_argument('--resume', default="", type=str,
                     help='Checkpoint state_dict file to resume training from')
 
 # Scheduler
@@ -75,20 +75,20 @@ parser.add_argument('--t_max', default=120, type=float,
 # Train params
 parser.add_argument('--batch_size', default=96, type=int,
                     help='Batch size for training')
-parser.add_argument('--num_epochs', default=200, type=int,
+parser.add_argument('--num_epochs', default=100, type=int,
                     help='the number epochs')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
-parser.add_argument('--validation_epochs', default=10, type=int,
+parser.add_argument('--validation_epochs', default=1, type=int,
                     help='the number epochs')
 parser.add_argument('--debug_steps', default=100, type=int,
                     help='Set the debug log output frequency.')
 parser.add_argument('--use_cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
 
-parser.add_argument('--checkpoint_folder', default='models_vehicle/',
+parser.add_argument('--checkpoint_folder', default='models_drink/',
                     help='Directory for saving checkpoint models')
-parser.add_argument('--log_dir', default='./models_vehicle/vehicle_detection/logs',
+parser.add_argument('--log_dir', default='./models_drink/logs',
                     help='lod dir')
 parser.add_argument('--cuda_index', default="0", type=str,
                     help='Choose cuda index.If you have 4 GPUs, you can set it like 0,1,2,3')
@@ -207,6 +207,8 @@ if __name__ == '__main__':
 
     if not os.path.exists(args.checkpoint_folder):
         os.makedirs(args.checkpoint_folder)
+    if not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
 
     train_dataset = VehicleDataset(args.datasets, is_train=True, transform=train_transform,target_transform=target_transform)
     val_dataset = VehicleDataset(args.datasets, is_train=True, transform=test_transform,target_transform=target_transform,)
@@ -222,7 +224,7 @@ if __name__ == '__main__':
         logging.info("use gpu :{}".format(cuda_index_list))
 
     min_loss = -10000.0
-    last_epoch = 33 #-1
+    last_epoch = -1 #-1
 
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr

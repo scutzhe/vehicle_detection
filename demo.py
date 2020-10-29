@@ -13,6 +13,7 @@ import os
 import sys
 import cv2
 import argparse
+from tqdm import tqdm
 from vision.ssd.config.fd_config import define_img_size
 from vision.ssd.mb_tiny_fd import create_mb_tiny_fd, create_mb_tiny_fd_predictor
 from vision.ssd.mb_tiny_RFB_fd import create_Mb_Tiny_RFB_fd, create_Mb_Tiny_RFB_fd_predictor
@@ -26,11 +27,11 @@ parser.add_argument('--threshold', default=0.6, type=float,
                     help='score threshold')
 parser.add_argument('--candidate_size', default=1500, type=int,
                     help='nms candidate size')
-parser.add_argument('--image_dir', default="vehicle_images", type=str,
+parser.add_argument('--image_dir', default="/home/zhex/test_result/tag_device", type=str,
                     help='imgs dir')
-parser.add_argument("--image_path",default="01.jpg", type=str,
+parser.add_argument("--image_path",default="vehicle_images/01.jpg", type=str,
                     help="image_path")
-parser.add_argument("--result_dir",default="/home/zhex/test_result/vehicle_detection", type=str,
+parser.add_argument("--result_dir",default="result", type=str,
                     help="result_dir")
 parser.add_argument("--label_path",default="models_vehicle/labels.txt",type=str,
                     help="label_path")
@@ -44,11 +45,11 @@ def detection():
     class_names = [name.strip() for name in open(args.label_path).readlines()]
 
     if args.net_type == 'slim':
-        model_path = "models_vehicle_slim/slim-Epoch-47-Loss-2.7371097601963403.pth"
+        model_path = "models_tag/slim-Epoch-96-Loss-1.614259208402326.pth"
         net = create_mb_tiny_fd(len(class_names), is_test=True, device=test_device)
         predictor = create_mb_tiny_fd_predictor(net, candidate_size=args.candidate_size, device=test_device)
     elif args.net_type == 'RFB':
-        model_path = "models_vehicle/RFB-Epoch-20-Loss-2.2841168881838954.pth"
+        model_path = "models_vehicle/RFB-Epoch-60-Loss-2.135233965479036.pth"
         net = create_Mb_Tiny_RFB_fd(len(class_names), is_test=True, device=test_device)
         predictor = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=args.candidate_size, device=test_device)
     else:
@@ -58,23 +59,72 @@ def detection():
 
     if not os.path.exists(args.result_dir):
         os.makedirs(args.result_dir)
-    sum = 0
     for name in os.listdir(args.image_dir):
-        img_path = os.path.join(args.image_dir, name)
-        orig_image = cv2.imread(img_path)
+        image_path = os.path.join(args.image_dir,name)
+        orig_image = cv2.imread(image_path)
         image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB)
         boxes, labels, probs = predictor.predict(image, args.candidate_size / 2, args.threshold)
-        sum += boxes.size(0)
         for i in range(boxes.size(0)):
             box = boxes[i, :]
             cv2.rectangle(orig_image, (box[0], box[1]), (box[2], box[3]), (0, 0, 255), 2)
-            # label = f"""{voc_dataset.class_names[labels[i]]}: {probs[i]:.2f}"""
-            label = f"{probs[i]:.2f}"
-            # cv2.putText(orig_image, label, (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        cv2.putText(orig_image, str(boxes.size(0)), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        cv2.imwrite(os.path.join(args.result_dir, name), orig_image)
-        print(f"Found {len(probs)} vehicle. The output image is {args.result_dir}")
-    print(sum)
+        cv2.putText(orig_image, str(boxes.size(0)), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 1)
+        cv2.imshow("image",orig_image)
+        cv2.waitKey(100)
+        # cv2.imwrite(args.result_dir + "/" + "{}".format(name),orig_image)
+        print(f"Found {len(probs)} object. The output image is in {args.result_dir}")
+
+
+def detection_index(image_path_txt,pre_txt_path):
+    """
+    @param image_path_txt:
+    @param pre_txt_path:
+    @return:
+    """
+    define_img_size(args.input_size)
+    test_device = args.test_device
+    class_names = [name.strip() for name in open(args.label_path).readlines()]
+
+    if args.net_type == 'slim':
+        model_path = "models_tag/slim-Epoch-96-Loss-1.614259208402326.pth"
+        net = create_mb_tiny_fd(len(class_names), is_test=True, device=test_device)
+        predictor = create_mb_tiny_fd_predictor(net, candidate_size=args.candidate_size, device=test_device)
+    elif args.net_type == 'RFB':
+        model_path = "models_vehicle/RFB-Epoch-60-Loss-2.135233965479036.pth"
+        net = create_Mb_Tiny_RFB_fd(len(class_names), is_test=True, device=test_device)
+        predictor = create_Mb_Tiny_RFB_fd_predictor(net, candidate_size=args.candidate_size, device=test_device)
+    else:
+        print("net type is wrong!")
+        sys.exit(1)
+    net.load(model_path)
+
+    if not os.path.exists(args.result_dir):
+        os.makedirs(args.result_dir)
+    filex = open(pre_txt_path,"a")
+    file_image = open(image_path_txt,"r")
+    for line in tqdm(file_image.readlines()):
+        name = line.strip().split(" ")[0]
+        image_path = os.path.join("/home/zhex/data/electronic_tag/images",name)
+        orig_image = cv2.imread(image_path)
+        image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB)
+        boxes, labels, probs = predictor.predict(image, args.candidate_size / 2, args.threshold)
+        filex.write(name + " ")
+        for i in range(boxes.size(0)):
+            box = boxes[i, :]
+            # cv2.rectangle(orig_image, (box[0], box[1]), (box[2], box[3]), (0, 0, 255), 2)
+            x1 = round(box[0].item())
+            y1 = round(box[1].item())
+            x2 = round(box[2].item())
+            y2 = round(box[3].item())
+            filex.write(str(x1) + " " + str(y1) + " " + str(x2) + " " + str(y2) + " ")
+        filex.write("\n")
+        # cv2.putText(orig_image, str(boxes.size(0)), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 1)
+        # cv2.imshow("image",orig_image)
+        # cv2.waitKey(100)
+        # cv2.imwrite(args.result_dir + "/" + "{}".format(name),orig_image)
+        # print(f"Found {len(probs)} object. The output image is in {args.result_dir}")
 
 if __name__ == '__main__':
-    detection()
+    # detection()
+    image_path_txt = "/home/zhex/data/electronic_tag/val.txt"
+    pre_dxt_path = "prediction.txt"
+    detection_index(image_path_txt, pre_dxt_path)
