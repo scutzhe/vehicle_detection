@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-# @author  : 郑祥忠
-# @license : (C) Copyright,2016-2020,广州海格星航科技
+# @author  :
+# @license :
 # @contact : dylenzheng@gmail.com
 # @file    : vehicle_dataset.py
 # @time    : 10/13/20 7:33 PM
